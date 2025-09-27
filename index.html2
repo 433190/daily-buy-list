@@ -1,10 +1,14 @@
-<!DOCTYPE html>
+pls check is this code correct : <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Firebase App (required) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+<!-- Firebase Firestore -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jaspreet Expenses</title>
-
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -12,10 +16,12 @@
       margin: 0;
       padding: 20px;
     }
+
     h1, h2 {
       text-align: center;
       color: #2c3e50;
     }
+
     .login-box {
       max-width: 300px;
       margin: 100px auto;
@@ -24,11 +30,13 @@
       border-radius: 8px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
+
     .login-box input, .login-box button {
       width: 100%;
       padding: 10px;
       margin: 8px 0;
     }
+
     table {
       width: 90%;
       margin: 20px auto;
@@ -36,29 +44,35 @@
       background: white;
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
+
     th, td {
       padding: 10px;
       border: 1px solid #ddd;
       text-align: center;
     }
+
     th {
       background-color: #2c3e50;
       color: white;
     }
+
     tfoot td {
       font-weight: bold;
       background: #ecf0f1;
     }
+
     input[type="number"], input[type="text"] {
       width: 120px;
       padding: 5px;
       text-align: center;
     }
+
     select, button {
       padding: 8px;
       margin: 10px;
       font-size: 14px;
     }
+
     button {
       background: #2c3e50;
       color: white;
@@ -66,29 +80,11 @@
       cursor: pointer;
       border-radius: 4px;
     }
+
     button:hover {
       background: #34495e;
     }
   </style>
-
-  <!-- Firebase classic SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js"></script>
-  <script>
-    // Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyB8vIjhz_BHKvMEr9kwaEy1ARw3ZY4pHQk",
-      authDomain: "jaspreetexpenses.firebaseapp.com",
-      projectId: "jaspreetexpenses",
-      storageBucket: "jaspreetexpenses.appspot.com",
-      messagingSenderId: "1082853248589",
-      appId: "1:1082853248589:web:55d128a2a88bc9a7a2d604"
-    };
-
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore(); // db is global
-  </script>
 </head>
 <body>
 
@@ -132,11 +128,23 @@
           <th>Action</th>
         </tr>
       </thead>
-      <tbody></tbody>
+      <tbody>
+        <!-- Initial Expenses -->
+        <tr>
+          <td><input type="text" value="Mobile Payment" onchange="updateTotal()"></td>
+          <td><input type="number" value="50" onchange="updateTotal()"></td>
+          <td><button onclick="deleteRow(this)">🗑️</button></td>
+        </tr>
+        <tr>
+          <td><input type="text" value="Car Insurance" onchange="updateTotal()"></td>
+          <td><input type="number" value="120" onchange="updateTotal()"></td>
+          <td><button onclick="deleteRow(this)">🗑️</button></td>
+        </tr>
+      </tbody>
       <tfoot>
         <tr>
           <td>Total</td>
-          <td id="totalAmount">0</td>
+          <td id="totalAmount">170</td>
           <td></td>
         </tr>
       </tfoot>
@@ -155,7 +163,8 @@
     function login() {
       const user = document.getElementById("username").value;
       const pass = document.getElementById("password").value;
-      if(user === correctUser && pass === correctPass){
+
+      if (user === correctUser && pass === correctPass) {
         document.getElementById("loginScreen").style.display = "none";
         document.getElementById("trackerScreen").style.display = "block";
         changeMonth();
@@ -164,80 +173,118 @@
       }
     }
 
-    function updateTotal(){
-      const rows = document.querySelectorAll("#expenseTable tbody tr");
+    function updateTotal() {
+      const tbody = document.querySelectorAll("#expenseTable tbody tr");
       let total = 0;
-      rows.forEach(row => {
-        total += parseFloat(row.cells[1].children[0].value) || 0;
+      tbody.forEach(row => {
+        const amount = parseFloat(row.cells[1].children[0].value) || 0;
+        total += amount;
       });
       document.getElementById("totalAmount").innerText = total.toFixed(2);
     }
 
-    function addRow(name = "", amount = 0){
+    function saveMonth() {
+      const month = document.getElementById("monthSelect").value;
+      const tbody = document.querySelectorAll("#expenseTable tbody tr");
+      let expenses = [];
+      tbody.forEach(row => {
+        expenses.push({
+          name: row.cells[0].children[0].value,
+          amount: row.cells[1].children[0].value
+        });
+      });
+      localStorage.setItem("expenses_" + month, JSON.stringify(expenses));
+      alert("Expenses saved for " + document.getElementById("monthTitle").innerText);
+    }
+
+    function changeMonth() {
+      const month = document.getElementById("monthSelect").value;
+      const monthNames = [
+        "January","February","March","April","May","June",
+        "July","August","September","October","November","December"
+      ];
+      document.getElementById("monthTitle").innerText = monthNames[month] + " Expenses";
+
+      const saved = localStorage.getItem("expenses_" + month);
+      const tbody = document.querySelector("#expenseTable tbody");
+      tbody.innerHTML = ""; // Clear current rows
+
+      if (saved) {
+        const expenses = JSON.parse(saved);
+        expenses.forEach(exp => {
+          const row = tbody.insertRow();
+          row.insertCell(0).innerHTML = `<input type="text" value="${exp.name}" onchange="updateTotal()">`;
+          row.insertCell(1).innerHTML = `<input type="number" value="${exp.amount}" onchange="updateTotal()">`;
+          row.insertCell(2).innerHTML = `<button onclick="deleteRow(this)">🗑️</button>`;
+        });
+      } else {
+        // If nothing saved, start with 1 empty row
+        addRow();
+      }
+      updateTotal();
+    }
+
+    function addRow() {
       const tbody = document.querySelector("#expenseTable tbody");
       const row = tbody.insertRow();
-      row.insertCell(0).innerHTML = `<input type="text" value="${name}" onchange="updateTotal()">`;
-      row.insertCell(1).innerHTML = `<input type="number" value="${amount}" onchange="updateTotal()">`;
+      row.insertCell(0).innerHTML = `<input type="text" placeholder="Expense Name" onchange="updateTotal()">`;
+      row.insertCell(1).innerHTML = `<input type="number" value="0" onchange="updateTotal()">`;
       row.insertCell(2).innerHTML = `<button onclick="deleteRow(this)">🗑️</button>`;
       updateTotal();
     }
 
-    function deleteRow(btn){
+    function deleteRow(btn) {
       const row = btn.parentNode.parentNode;
       row.parentNode.removeChild(row);
       updateTotal();
     }
 
-    async function saveMonth(){
-      const month = document.getElementById("monthSelect").value;
-      const rows = document.querySelectorAll("#expenseTable tbody tr");
-      const expenses = [];
-      rows.forEach(row => {
-        expenses.push({
-          name: row.cells[0].children[0].value,
-          amount: parseFloat(row.cells[1].children[0].value) || 0
-        });
-      });
-
-      try {
-        await db.collection("expenses").doc(correctUser)
-          .collection("months").doc(month).set({ expenses });
-        alert("Expenses saved to Firestore for " + document.getElementById("monthTitle").innerText);
-      } catch (err) {
-        console.error(err);
-        alert("Error saving: " + err.message);
-      }
-    }
-
-    async function changeMonth(){
-      const month = document.getElementById("monthSelect").value;
-      const monthNames = ["January","February","March","April","May","June",
-                          "July","August","September","October","November","December"];
-      document.getElementById("monthTitle").innerText = monthNames[month] + " Expenses";
-
-      const tbody = document.querySelector("#expenseTable tbody");
-      tbody.innerHTML = "";
-
-      try {
-        const docSnap = await db.collection("expenses").doc(correctUser)
-          .collection("months").doc(month).get();
-        if(docSnap.exists){
-          const expenses = docSnap.data().expenses;
-          expenses.forEach(exp => addRow(exp.name, exp.amount));
-        } else {
-          addRow(); // empty row if nothing saved
-        }
-      } catch(err){
-        console.error(err);
-        addRow();
-      }
-
-      updateTotal();
-    }
-
-    // Load current month by default
-    document.getElementById("monthSelect").value = new Date().getMonth();
+    // Load current month
+    const today = new Date();
+    document.getElementById("monthSelect").value = today.getMonth();
   </script>
 
 </body>
 </html>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
+  import { getFirestore } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+const firebaseConfig = {
+  apiKey: "AIzaSyB8vIjhz_BHKvMEr9kwaEy1ARw3ZY4pHQk",
+  authDomain: "jaspreetexpenses.firebaseapp.com",
+  projectId: "jaspreetexpenses",
+  storageBucket: "jaspreetexpenses.firebasestorage.app",
+  messagingSenderId: "1082853248589",
+  appId: "1:1082853248589:web:55d128a2a88bc9a7a2d604",
+  measurementId: "G-85XY52M5BV"
+};
+
+  // Initialize Firebase
+  const app = firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore(); // <-- this defines db
+</script>
+  async function testFirestore() {
+    try {
+      // Writing a test document
+      await db.collection("users").doc("jaspreet").set({
+        testField: "Hello Firestore!",
+        timestamp: new Date()
+      });
+
+      alert("Document successfully written! Test mode is working.");
+    } catch (err) {
+      console.error(err);
+      alert("Error writing document: " + err.message);
+    }
+  }
+</script>
+
+
+  // Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
+  <button onclick="testFirestore()">Test Firestore Write</button>
+
+
+
