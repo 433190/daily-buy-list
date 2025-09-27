@@ -15,10 +15,17 @@
     h1 {
       text-align: center;
       color: #2c3e50;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      text-align: center;
+      color: #34495e;
+      margin-top: 0;
     }
 
     table {
-      width: 80%;
+      width: 90%;
       margin: 20px auto;
       border-collapse: collapse;
       background: white;
@@ -26,7 +33,7 @@
     }
 
     th, td {
-      padding: 12px;
+      padding: 10px;
       border: 1px solid #ddd;
       text-align: center;
     }
@@ -41,34 +48,41 @@
       background: #ecf0f1;
     }
 
-    .add-expense {
-      display: flex;
-      justify-content: center;
-      margin: 20px 0;
-      gap: 10px;
+    input[type="number"] {
+      width: 80px;
+      padding: 5px;
+      text-align: center;
     }
 
-    input, button {
+    select {
       padding: 8px;
+      margin-top: 10px;
       font-size: 14px;
-    }
-
-    button {
-      background: #2c3e50;
-      color: white;
-      border: none;
-      cursor: pointer;
-      border-radius: 4px;
-    }
-
-    button:hover {
-      background: #34495e;
     }
   </style>
 </head>
 <body>
 
   <h1>Jaspreet Expenses</h1>
+  <h2 id="monthTitle"></h2>
+
+  <div style="text-align:center;">
+    <label for="monthSelect">Choose Month:</label>
+    <select id="monthSelect" onchange="changeMonth()">
+      <option value="0">January</option>
+      <option value="1">February</option>
+      <option value="2">March</option>
+      <option value="3">April</option>
+      <option value="4">May</option>
+      <option value="5">June</option>
+      <option value="6">July</option>
+      <option value="7">August</option>
+      <option value="8">September</option>
+      <option value="9">October</option>
+      <option value="10">November</option>
+      <option value="11">December</option>
+    </select>
+  </div>
 
   <table id="expenseTable">
     <thead>
@@ -78,12 +92,12 @@
       </tr>
     </thead>
     <tbody>
-      <tr><td>Mobile Payment</td><td>50</td></tr>
-      <tr><td>Car Insurance</td><td>120</td></tr>
-      <tr><td>Study Loan</td><td>300</td></tr>
-      <tr><td>Equifax Payment</td><td>20</td></tr>
-      <tr><td>Amazon Payment</td><td>40</td></tr>
-      <tr><td>Apple Payment</td><td>15</td></tr>
+      <tr><td>Mobile Payment</td><td><input type="number" value="50" onchange="updateTotal()"></td></tr>
+      <tr><td>Car Insurance</td><td><input type="number" value="120" onchange="updateTotal()"></td></tr>
+      <tr><td>Study Loan</td><td><input type="number" value="300" onchange="updateTotal()"></td></tr>
+      <tr><td>Equifax Payment</td><td><input type="number" value="20" onchange="updateTotal()"></td></tr>
+      <tr><td>Amazon Payment</td><td><input type="number" value="40" onchange="updateTotal()"></td></tr>
+      <tr><td>Apple Payment</td><td><input type="number" value="15" onchange="updateTotal()"></td></tr>
     </tbody>
     <tfoot>
       <tr>
@@ -93,35 +107,43 @@
     </tfoot>
   </table>
 
-  <div class="add-expense">
-    <input type="text" id="expenseName" placeholder="Expense Name">
-    <input type="number" id="expenseAmount" placeholder="Amount">
-    <button onclick="addExpense()">Add Expense</button>
-  </div>
-
   <script>
-    function addExpense() {
-      const name = document.getElementById("expenseName").value;
-      const amount = parseFloat(document.getElementById("expenseAmount").value);
-      if (name && amount) {
-        const table = document.getElementById("expenseTable").getElementsByTagName("tbody")[0];
-        const newRow = table.insertRow();
-        newRow.insertCell(0).innerText = name;
-        newRow.insertCell(1).innerText = amount;
+    // Store monthly expenses
+    let monthlyData = Array.from({length: 12}, () => []);
 
-        updateTotal(amount);
-
-        document.getElementById("expenseName").value = "";
-        document.getElementById("expenseAmount").value = "";
-      } else {
-        alert("Please enter both name and amount!");
-      }
+    function updateTotal() {
+      const inputs = document.querySelectorAll("#expenseTable tbody input");
+      let total = 0;
+      inputs.forEach((input, i) => {
+        const value = parseFloat(input.value) || 0;
+        total += value;
+        // save in monthlyData
+        const month = document.getElementById("monthSelect").value;
+        monthlyData[month][i] = value;
+      });
+      document.getElementById("totalAmount").innerText = total.toFixed(2);
     }
 
-    function updateTotal(amount) {
-      const totalCell = document.getElementById("totalAmount");
-      totalCell.innerText = parseFloat(totalCell.innerText) + amount;
+    function changeMonth() {
+      const month = document.getElementById("monthSelect").value;
+      const monthNames = [
+        "January","February","March","April","May","June",
+        "July","August","September","October","November","December"
+      ];
+      document.getElementById("monthTitle").innerText = monthNames[month] + " Expenses";
+
+      // Load saved values
+      const inputs = document.querySelectorAll("#expenseTable tbody input");
+      inputs.forEach((input, i) => {
+        input.value = monthlyData[month][i] || 0;
+      });
+      updateTotal();
     }
+
+    // Initialize page with current month
+    const today = new Date();
+    document.getElementById("monthSelect").value = today.getMonth();
+    changeMonth();
   </script>
 
 </body>
