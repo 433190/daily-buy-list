@@ -57,7 +57,7 @@
     }
 
     input[type="number"], input[type="text"] {
-      width: 100px;
+      width: 120px;
       padding: 5px;
       text-align: center;
     }
@@ -120,43 +120,33 @@
         <tr>
           <th>Expense Name</th>
           <th>Amount ($)</th>
+          <th>Action</th>
         </tr>
       </thead>
       <tbody>
+        <!-- Initial Expenses -->
         <tr>
           <td><input type="text" value="Mobile Payment" onchange="updateTotal()"></td>
           <td><input type="number" value="50" onchange="updateTotal()"></td>
+          <td><button onclick="deleteRow(this)">🗑️</button></td>
         </tr>
         <tr>
           <td><input type="text" value="Car Insurance" onchange="updateTotal()"></td>
           <td><input type="number" value="120" onchange="updateTotal()"></td>
-        </tr>
-        <tr>
-          <td><input type="text" value="Study Loan" onchange="updateTotal()"></td>
-          <td><input type="number" value="300" onchange="updateTotal()"></td>
-        </tr>
-        <tr>
-          <td><input type="text" value="Equifax Payment" onchange="updateTotal()"></td>
-          <td><input type="number" value="20" onchange="updateTotal()"></td>
-        </tr>
-        <tr>
-          <td><input type="text" value="Amazon Payment" onchange="updateTotal()"></td>
-          <td><input type="number" value="40" onchange="updateTotal()"></td>
-        </tr>
-        <tr>
-          <td><input type="text" value="Apple Payment" onchange="updateTotal()"></td>
-          <td><input type="number" value="15" onchange="updateTotal()"></td>
+          <td><button onclick="deleteRow(this)">🗑️</button></td>
         </tr>
       </tbody>
       <tfoot>
         <tr>
           <td>Total</td>
-          <td id="totalAmount">545</td>
+          <td id="totalAmount">170</td>
+          <td></td>
         </tr>
       </tfoot>
     </table>
 
     <div style="text-align:center;">
+      <button onclick="addRow()">➕ Add Expense</button>
       <button onclick="saveMonth()">💾 Save</button>
     </div>
   </div>
@@ -211,19 +201,36 @@
       document.getElementById("monthTitle").innerText = monthNames[month] + " Expenses";
 
       const saved = localStorage.getItem("expenses_" + month);
-      const tbody = document.querySelectorAll("#expenseTable tbody tr");
+      const tbody = document.querySelector("#expenseTable tbody");
+      tbody.innerHTML = ""; // Clear current rows
+
       if (saved) {
         const expenses = JSON.parse(saved);
-        tbody.forEach((row, i) => {
-          row.cells[0].children[0].value = expenses[i].name || "";
-          row.cells[1].children[0].value = expenses[i].amount || 0;
+        expenses.forEach(exp => {
+          const row = tbody.insertRow();
+          row.insertCell(0).innerHTML = `<input type="text" value="${exp.name}" onchange="updateTotal()">`;
+          row.insertCell(1).innerHTML = `<input type="number" value="${exp.amount}" onchange="updateTotal()">`;
+          row.insertCell(2).innerHTML = `<button onclick="deleteRow(this)">🗑️</button>`;
         });
       } else {
-        tbody.forEach(row => {
-          row.cells[0].children[0].value = "";
-          row.cells[1].children[0].value = 0;
-        });
+        // If nothing saved, start with 1 empty row
+        addRow();
       }
+      updateTotal();
+    }
+
+    function addRow() {
+      const tbody = document.querySelector("#expenseTable tbody");
+      const row = tbody.insertRow();
+      row.insertCell(0).innerHTML = `<input type="text" placeholder="Expense Name" onchange="updateTotal()">`;
+      row.insertCell(1).innerHTML = `<input type="number" value="0" onchange="updateTotal()">`;
+      row.insertCell(2).innerHTML = `<button onclick="deleteRow(this)">🗑️</button>`;
+      updateTotal();
+    }
+
+    function deleteRow(btn) {
+      const row = btn.parentNode.parentNode;
+      row.parentNode.removeChild(row);
       updateTotal();
     }
 
