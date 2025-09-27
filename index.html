@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Firebase App (required) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+<!-- Firebase Firestore -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jaspreet Expenses</title>
@@ -241,3 +246,39 @@
 
 </body>
 </html>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyB8vIjhz_BHKvMEr9kwaEy1ARw3ZY4pHQk",
+  authDomain: "jaspreetexpenses.firebaseapp.com",
+  projectId: "jaspreetexpenses",
+  storageBucket: "jaspreetexpenses.firebasestorage.app",
+  messagingSenderId: "1082853248589",
+  appId: "1:1082853248589:web:55d128a2a88bc9a7a2d604",
+  measurementId: "G-85XY52M5BV"
+};
+
+  <script>
+  async function testFirestore() {
+    try {
+      // Writing a test document
+      await db.collection("users").doc("jaspreet").set({
+        testField: "Hello Firestore!",
+        timestamp: new Date()
+      });
+
+      alert("Document successfully written! Test mode is working.");
+    } catch (err) {
+      console.error(err);
+      alert("Error writing document: " + err.message);
+    }
+  }
+</script>
+
+
+  // Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
+  <button onclick="testFirestore()">Test Firestore Write</button>
+
+
