@@ -12,16 +12,24 @@
       padding: 20px;
     }
 
-    h1 {
+    h1, h2 {
       text-align: center;
       color: #2c3e50;
-      margin-bottom: 10px;
     }
 
-    h2 {
-      text-align: center;
-      color: #34495e;
-      margin-top: 0;
+    .login-box {
+      max-width: 300px;
+      margin: 100px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .login-box input, .login-box button {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
     }
 
     table {
@@ -54,74 +62,122 @@
       text-align: center;
     }
 
-    select {
+    select, button {
       padding: 8px;
-      margin-top: 10px;
+      margin: 10px;
       font-size: 14px;
+    }
+
+    button {
+      background: #2c3e50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    button:hover {
+      background: #34495e;
     }
   </style>
 </head>
 <body>
 
-  <h1>Jaspreet Expenses</h1>
-  <h2 id="monthTitle"></h2>
-
-  <div style="text-align:center;">
-    <label for="monthSelect">Choose Month:</label>
-    <select id="monthSelect" onchange="changeMonth()">
-      <option value="0">January</option>
-      <option value="1">February</option>
-      <option value="2">March</option>
-      <option value="3">April</option>
-      <option value="4">May</option>
-      <option value="5">June</option>
-      <option value="6">July</option>
-      <option value="7">August</option>
-      <option value="8">September</option>
-      <option value="9">October</option>
-      <option value="10">November</option>
-      <option value="11">December</option>
-    </select>
+  <!-- Login Screen -->
+  <div id="loginScreen" class="login-box">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+    <p id="loginError" style="color:red; text-align:center;"></p>
   </div>
 
-  <table id="expenseTable">
-    <thead>
-      <tr>
-        <th>Expense Name</th>
-        <th>Amount ($)</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr><td>Mobile Payment</td><td><input type="number" value="50" onchange="updateTotal()"></td></tr>
-      <tr><td>Car Insurance</td><td><input type="number" value="120" onchange="updateTotal()"></td></tr>
-      <tr><td>Study Loan</td><td><input type="number" value="300" onchange="updateTotal()"></td></tr>
-      <tr><td>Equifax Payment</td><td><input type="number" value="20" onchange="updateTotal()"></td></tr>
-      <tr><td>Amazon Payment</td><td><input type="number" value="40" onchange="updateTotal()"></td></tr>
-      <tr><td>Apple Payment</td><td><input type="number" value="15" onchange="updateTotal()"></td></tr>
-    </tbody>
-    <tfoot>
-      <tr>
-        <td>Total</td>
-        <td id="totalAmount">545</td>
-      </tr>
-    </tfoot>
-  </table>
+  <!-- Expense Tracker -->
+  <div id="trackerScreen" style="display:none;">
+    <h1>Jaspreet Expenses</h1>
+    <h2 id="monthTitle"></h2>
+
+    <div style="text-align:center;">
+      <label for="monthSelect">Choose Month:</label>
+      <select id="monthSelect" onchange="changeMonth()">
+        <option value="0">January</option>
+        <option value="1">February</option>
+        <option value="2">March</option>
+        <option value="3">April</option>
+        <option value="4">May</option>
+        <option value="5">June</option>
+        <option value="6">July</option>
+        <option value="7">August</option>
+        <option value="8">September</option>
+        <option value="9">October</option>
+        <option value="10">November</option>
+        <option value="11">December</option>
+      </select>
+    </div>
+
+    <table id="expenseTable">
+      <thead>
+        <tr>
+          <th>Expense Name</th>
+          <th>Amount ($)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Mobile Payment</td><td><input type="number" value="50" onchange="updateTotal()"></td></tr>
+        <tr><td>Car Insurance</td><td><input type="number" value="120" onchange="updateTotal()"></td></tr>
+        <tr><td>Study Loan</td><td><input type="number" value="300" onchange="updateTotal()"></td></tr>
+        <tr><td>Equifax Payment</td><td><input type="number" value="20" onchange="updateTotal()"></td></tr>
+        <tr><td>Amazon Payment</td><td><input type="number" value="40" onchange="updateTotal()"></td></tr>
+        <tr><td>Apple Payment</td><td><input type="number" value="15" onchange="updateTotal()"></td></tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td>Total</td>
+          <td id="totalAmount">545</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div style="text-align:center;">
+      <button onclick="saveMonth()">💾 Save</button>
+    </div>
+  </div>
 
   <script>
-    // Store monthly expenses
-    let monthlyData = Array.from({length: 12}, () => []);
+    // Simple login (username/password stored in code)
+    const correctUser = "jaspreet";
+    const correctPass = "1234";
 
+    function login() {
+      const user = document.getElementById("username").value;
+      const pass = document.getElementById("password").value;
+
+      if (user === correctUser && pass === correctPass) {
+        document.getElementById("loginScreen").style.display = "none";
+        document.getElementById("trackerScreen").style.display = "block";
+        changeMonth();
+      } else {
+        document.getElementById("loginError").innerText = "Invalid username or password!";
+      }
+    }
+
+    // Monthly Data Storage
     function updateTotal() {
       const inputs = document.querySelectorAll("#expenseTable tbody input");
       let total = 0;
-      inputs.forEach((input, i) => {
-        const value = parseFloat(input.value) || 0;
-        total += value;
-        // save in monthlyData
-        const month = document.getElementById("monthSelect").value;
-        monthlyData[month][i] = value;
+      inputs.forEach(input => {
+        total += parseFloat(input.value) || 0;
       });
       document.getElementById("totalAmount").innerText = total.toFixed(2);
+    }
+
+    function saveMonth() {
+      const month = document.getElementById("monthSelect").value;
+      const inputs = document.querySelectorAll("#expenseTable tbody input");
+      let values = [];
+      inputs.forEach(input => values.push(input.value));
+      localStorage.setItem("expenses_" + month, JSON.stringify(values));
+      alert("Expenses saved for " + document.getElementById("monthTitle").innerText);
     }
 
     function changeMonth() {
@@ -133,17 +189,22 @@
       document.getElementById("monthTitle").innerText = monthNames[month] + " Expenses";
 
       // Load saved values
+      const saved = localStorage.getItem("expenses_" + month);
       const inputs = document.querySelectorAll("#expenseTable tbody input");
-      inputs.forEach((input, i) => {
-        input.value = monthlyData[month][i] || 0;
-      });
+      if (saved) {
+        const values = JSON.parse(saved);
+        inputs.forEach((input, i) => {
+          input.value = values[i] || 0;
+        });
+      } else {
+        inputs.forEach(input => input.value = 0);
+      }
       updateTotal();
     }
 
-    // Initialize page with current month
+    // Load current month by default
     const today = new Date();
     document.getElementById("monthSelect").value = today.getMonth();
-    changeMonth();
   </script>
 
 </body>
