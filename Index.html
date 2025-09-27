@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Daily Buy List</title>
+<style>
+:root { --accent: #0ea5a4; --bg:#f7f7f8; --card:#fff; }
+*{box-sizing:border-box}
+body{font-family:Inter, system-ui, Arial; margin:0; padding:18px; background:var(--bg); color:#0f172a;}
+.container{max-width:900px;margin:0 auto;}
+header{display:flex;align-items:center;justify-content:space-between;gap:1rem; margin-bottom:18px;}
+h1{margin:0;font-size:1.3rem;}
+form{display:flex;flex-wrap:wrap;gap:8px;background:var(--card);padding:12px;border-radius:10px;box-shadow:0 2px 6px rgba(2,6,23,0.06);}
+input[type="text"],input[type="date"],input[type="number"],select{padding:8px;border-radius:8px;border:1px solid #e6e7ea; min-width:120px;}
+button{background:var(--accent);color:white;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;}
+.controls-row{display:flex;gap:8px;align-items:center;}
+#itemsList{list-style:none;padding:0;margin-top:12px;display:grid;gap:8px;}
+.item{background:var(--card);padding:12px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 1px 2px rgba(2,6,23,0.04);}
+.item-left{display:flex;gap:12px;align-items:center;}
+.checkbox{width:20px;height:20px;border-radius:6px;border:1px solid #cbd5e1;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.item-details{min-width:0;}
+.item-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.small{font-size:0.85rem;color:#475569;}
+.actions{display:flex;gap:8px;align-items:center;}
+.btn-ghost{background:transparent;border:1px solid #e6e7ea;padding:6px 8px;border-radius:8px;cursor:pointer;}
+@media(max-width:640px){form{flex-direction:column} .controls-row{width:100%;}}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<div>
+<h1>Daily Buy List</h1>
+<p class="small">Add items you plan to buy — view by date or today.</p>
+</div>
+<div class="small">Local-only demo • opens in browser</div>
+</header>
+
+<form id="addForm" aria-label="Add item">
+<input id="itemName" type="text" placeholder="Item (e.g., milk)" required />
+<input id="itemQty" type="number" min="1" value="1" aria-label="Quantity" />
+<input id="itemDate" type="date" aria-label="Date" />
+<select id="itemCat" aria-label="Category">
+<option value="">Category</option>
+<option>Groceries</option><option>Household</option><option>Electronics</option><option>Other</option>
+</select>
+<label class="controls-row"><input id="itemRecurring" type="checkbox" /> Repeat daily</label>
+<button type="submit">Add</button>
+</form>
+
+<div style="display:flex;gap:8px;align-items:center;margin-top:12px;">
+<button id="showToday" class="btn-ghost">Today</button>
+<input id="filterDate" type="date" />
+<button id="clearBought" class="btn-ghost">Clear bought</button>
+<button id="exportBtn" class="btn-ghost">Export JSON</button>
+<button id="importBtn" class="btn-ghost">Import JSON</button>
+<input id="importFile" type="file" accept="application/json" style="display:none" />
+</div>
+
+<ul id="itemsList" aria-live="polite"></ul>
+</div>
+
+<script>
+/* Simple Daily Buy List - single file app */
+const STORAGE_KEY = 'daily-buy-list.v1';
+
+const qs = (s)=>document.querySelector(s);
+const addForm = qs('#addForm');
+const itemName = qs('#itemName');
+const itemQty = qs('#itemQty');
+const itemDate = qs('#itemDate');
+const itemCat = qs('#itemCat');
+const itemRecurring = qs('#itemRecurring');
+const itemsList = qs('#itemsList');
+const showTodayBtn = qs('#showToday');
+const filterDateInput = qs('#filterDate');
+const clearBoughtBtn = qs('#clearBought');
+const exportBtn = qs('#exportBtn');
+const importBtn = qs('#importBtn');
+const importFile = qs('#importFile');
+
+let items = [];
+
+function todayISO() {
+  return new Date().toISOString().slice(0,10);
+}
+
+function load() {
+  try {
+    items = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  } catch(e){ items = []; }
+}
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}
+
+function createItem({name,qty,date,category,recurring}) {
+  return {
+    id: Date.now() + Math.floor(Math.random()*1000),
+    name: name.trim(),
+    qty: Number(qty) || 1,
+    date: date || todayISO(), // date for non-recurring items
+    category: category || '',
+    recurring: !!recurring,
+    bought: false, // for non-recurring items
+    lastBoughtDate: null, // for recurring items, stores last date when bought
+    createdAt: new Date().toISOString()
+  };
+}
+
+function addItem(data) {
+  items.push(createItem(data));
+  save();
+  render(currentFilterDate());
+}
+
+function currentFilterDate() {
+  return filterDateInput.value || todayISO();
+}
+
+function render(filterDate) {
+  itemsList.innerHTML = '';
+  const list = items
+    .filter(it => it.recurring ? true : it.date === filterDate)
+    .sort((a,b)=>{
+      // Recurring first, then not bought, then alphabetical
+      if(a.recurring !== b.recurring) return a.recurring? -1:1;
+      const aBought = isBoughtOnDate(a,filterDate);
+      const bBought = isBoughtOnDate(b,filterDate);
+      if(aBought !== bBought) return aBought? 1:-1;
+      return a.name.localeCompare(b.name);
+    });
+
+  if(list.length === 0) {
+    itemsList.innerHTML = '<li class="small">No items for this date.</li>';
+    return;
+  }
+
+  for(const it of list) {
+    const li = document.createElement('li');
+    li.className='item';
+    const left = document.createElement('div'); left.className='item-left';
+    const cb = document.createElement('button'); cb.className='checkbox'; cb.setAttribute('aria-label','Toggle bought');
+    const bought = isBoughtOnDate(it,filterDate);
+    cb.innerHTML = bought ? '✓' : '';
+    cb.onclick = ()=> toggleBought(it.id,filterDate);
+
+    const details = document.createElement('div'); details.className='item-details';
+    const name = document.createElement('div'); name.className='item-name'; name.textContent = it.name;
+    const meta = document.createElement('div'); meta.className='small'; 
+    meta.textContent = `${it.qty} × ${it.category || '—'} ${it.recurring? '• recurring':''} ${!it.recurring? '• ' + it.date : ''}`;
+    details.appendChild(name); details.appendChild(meta);
+
+    left.appendChild(cb); left.appendChild(details);
+
+    const actions = document.createElement('div'); actions.className='actions';
+    const editBtn = document.createElement('button'); editBtn.className='btn-ghost'; editBtn.textContent='Edit';
+    editBtn.onclick = ()=> editItem(it.id);
+    const delBtn = document.createElement('button'); delBtn.className='btn-ghost'; delBtn.textContent='Delete';
+    delBtn.onclick = ()=> { if(confirm('Delete this item?')) deleteItem(it.id); };
+    actions.appendChild(editBtn); actions.appendChild(delBtn);
+
+    li.appendChild(left); li.appendChild(actions);
+    itemsList.appendChild(li);
+  }
+}
+
+function isBoughtOnDate(item, date) {
+  if(item.recurring) return item.lastBoughtDate === date;
+  return item.bought;
+}
+
+function toggleBought(id, date) {
+  const it = items.find(x=>x.id===id); if(!it) return;
+  if(it.recurring){
+    it.lastBoughtDate = (it.lastBoughtDate === date) ? null : date;
+  } else {
+    it.bought = !it.bought;
+  }
+  save(); render(currentFilterDate());
+}
+
+function deleteItem(id) {
+  items = items.filter(x=>x.id!==id);
+  save(); render(currentFilterDate());
+}
+
+function editItem(id) {
+  const it = items.find(x=>x.id===id); if(!it) return;
+  const newName = prompt('Item name', it.name);
+  if(newName === null) return;
+  it.name = newName.trim() || it.name;
+  const newQty = prompt('Quantity', it.qty);
+  if(newQty !== null) it.qty = Number(newQty) || it.qty;
+  if(!it.recurring){
+    const newDate = prompt('Date (YYYY-MM-DD)', it.date);
+    if(newDate) it.date = newDate;
+  }
+  const newCat = prompt('Category', it.category);
+  if(newCat !== null) it.category = newCat;
+  save(); render(currentFilterDate());
+}
+
+addForm.addEventListener('submit', e=>{
+  e.preventDefault();
+  addItem({
+    name: itemName.value,
+    qty: itemQty.value,
+    date: itemDate.value || todayISO(),
+    category: itemCat.value,
+    recurring: itemRecurring.checked
+  });
+  addForm.reset();
+  itemDate.value = todayISO();
+  itemQty.value = 1;
+  itemName.focus();
+});
+
+showTodayBtn.addEventListener('click', ()=>{
+  filterDateInput.value = todayISO();
+  render(todayISO());
+});
+
+filterDateInput.addEventListener('change', ()=>render(currentFilterDate()));
+
+clearBoughtBtn.addEventListener('click', ()=>{
+  if(!confirm('Clear all bought items for this date?')) return;
+  const date = currentFilterDate();
+  items = items.map(it=>{
+    if(it.recurring){
+      if(it.lastBoughtDate === date) it.lastBoughtDate = null;
+      return it;
+    } else {
+      if(it.date === date && it.bought) return null;
+      return it;
+    }
+  }).filter(Boolean);
+  save(); render(currentFilterDate());
+});
+
+exportBtn.addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(items, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'daily-buy-list.json'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+importBtn.addEventListener('click', ()=> importFile.click());
+importFile.addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ()=> {
+    try{
+      const imported = JSON.parse(reader.result);
+      if(Array.isArray(imported)){
+        items = imported;
+        save(); render(currentFilterDate());
+        alert('Import successful');
+      } else alert('Invalid file');
+    }catch(err){ alert('Could not parse JSON'); }
+  };
+  reader.readAsText(f);
+});
+
+function init() {
+  load();
+  itemDate.value = todayISO();
+  filterDateInput.value = todayISO();
+  render(todayISO());
+}
+init();
+</script>
+</body>
+</html>
