@@ -71,13 +71,11 @@
     }
   </style>
 
-  <!-- Firebase SDK -->
-  <script type="module">
-    // Import Firebase modules
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
-    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
-
-    // Your Firebase config
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js"></script>
+  <script>
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyB8vIjhz_BHKvMEr9kwaEy1ARw3ZY4pHQk",
       authDomain: "jaspreetexpenses.firebaseapp.com",
@@ -89,13 +87,9 @@
     };
 
     // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    // Expose db to window so normal script can use it
-    window.db = db;
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
   </script>
-
 </head>
 <body>
 
@@ -139,8 +133,7 @@
           <th>Action</th>
         </tr>
       </thead>
-      <tbody>
-      </tbody>
+      <tbody></tbody>
       <tfoot>
         <tr>
           <td>Total</td>
@@ -157,13 +150,14 @@
   </div>
 
   <script>
+    // Login credentials
     const correctUser = "jaspreet";
     const correctPass = "1234";
 
     function login() {
       const user = document.getElementById("username").value;
       const pass = document.getElementById("password").value;
-      if (user === correctUser && pass === correctPass) {
+      if(user === correctUser && pass === correctPass){
         document.getElementById("loginScreen").style.display = "none";
         document.getElementById("trackerScreen").style.display = "block";
         changeMonth();
@@ -172,7 +166,7 @@
       }
     }
 
-    function updateTotal() {
+    function updateTotal(){
       const tbody = document.querySelectorAll("#expenseTable tbody tr");
       let total = 0;
       tbody.forEach(row => {
@@ -181,7 +175,7 @@
       document.getElementById("totalAmount").innerText = total.toFixed(2);
     }
 
-    function addRow(name = "", amount = 0) {
+    function addRow(name = "", amount = 0){
       const tbody = document.querySelector("#expenseTable tbody");
       const row = tbody.insertRow();
       row.insertCell(0).innerHTML = `<input type="text" value="${name}" onchange="updateTotal()">`;
@@ -190,13 +184,13 @@
       updateTotal();
     }
 
-    function deleteRow(btn) {
+    function deleteRow(btn){
       const row = btn.parentNode.parentNode;
       row.parentNode.removeChild(row);
       updateTotal();
     }
 
-    async function saveMonth() {
+    async function saveMonth(){
       const month = document.getElementById("monthSelect").value;
       const tbody = document.querySelectorAll("#expenseTable tbody tr");
       const expenses = [];
@@ -207,38 +201,36 @@
         });
       });
 
-      try {
+      try{
         await db.collection("expenses").doc(correctUser)
           .collection("months").doc(month).set({ expenses });
         alert("Expenses saved to Firestore for " + document.getElementById("monthTitle").innerText);
-      } catch (err) {
+      }catch(err){
         console.error(err);
         alert("Error saving: " + err.message);
       }
     }
 
-    async function changeMonth() {
+    async function changeMonth(){
       const month = document.getElementById("monthSelect").value;
-      const monthNames = [
-        "January","February","March","April","May","June",
-        "July","August","September","October","November","December"
-      ];
+      const monthNames = ["January","February","March","April","May","June",
+                          "July","August","September","October","November","December"];
       document.getElementById("monthTitle").innerText = monthNames[month] + " Expenses";
 
       const tbody = document.querySelector("#expenseTable tbody");
       tbody.innerHTML = "";
 
-      try {
+      try{
         const docSnap = await db.collection("expenses").doc(correctUser)
           .collection("months").doc(month).get();
 
-        if (docSnap.exists()) {
+        if(docSnap.exists){
           const expenses = docSnap.data().expenses;
           expenses.forEach(exp => addRow(exp.name, exp.amount));
         } else {
-          addRow(); // empty row if nothing saved
+          addRow();
         }
-      } catch (err) {
+      }catch(err){
         console.error(err);
         addRow();
       }
@@ -246,7 +238,7 @@
       updateTotal();
     }
 
-    // Load current month by default
+    // Load current month
     document.getElementById("monthSelect").value = new Date().getMonth();
   </script>
 
