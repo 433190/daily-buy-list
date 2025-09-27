@@ -56,8 +56,8 @@
       background: #ecf0f1;
     }
 
-    input[type="number"] {
-      width: 80px;
+    input[type="number"], input[type="text"] {
+      width: 100px;
       padding: 5px;
       text-align: center;
     }
@@ -123,12 +123,30 @@
         </tr>
       </thead>
       <tbody>
-        <tr><td>Mobile Payment</td><td><input type="number" value="50" onchange="updateTotal()"></td></tr>
-        <tr><td>Car Insurance</td><td><input type="number" value="120" onchange="updateTotal()"></td></tr>
-        <tr><td>Study Loan</td><td><input type="number" value="300" onchange="updateTotal()"></td></tr>
-        <tr><td>Equifax Payment</td><td><input type="number" value="20" onchange="updateTotal()"></td></tr>
-        <tr><td>Amazon Payment</td><td><input type="number" value="40" onchange="updateTotal()"></td></tr>
-        <tr><td>Apple Payment</td><td><input type="number" value="15" onchange="updateTotal()"></td></tr>
+        <tr>
+          <td><input type="text" value="Mobile Payment" onchange="updateTotal()"></td>
+          <td><input type="number" value="50" onchange="updateTotal()"></td>
+        </tr>
+        <tr>
+          <td><input type="text" value="Car Insurance" onchange="updateTotal()"></td>
+          <td><input type="number" value="120" onchange="updateTotal()"></td>
+        </tr>
+        <tr>
+          <td><input type="text" value="Study Loan" onchange="updateTotal()"></td>
+          <td><input type="number" value="300" onchange="updateTotal()"></td>
+        </tr>
+        <tr>
+          <td><input type="text" value="Equifax Payment" onchange="updateTotal()"></td>
+          <td><input type="number" value="20" onchange="updateTotal()"></td>
+        </tr>
+        <tr>
+          <td><input type="text" value="Amazon Payment" onchange="updateTotal()"></td>
+          <td><input type="number" value="40" onchange="updateTotal()"></td>
+        </tr>
+        <tr>
+          <td><input type="text" value="Apple Payment" onchange="updateTotal()"></td>
+          <td><input type="number" value="15" onchange="updateTotal()"></td>
+        </tr>
       </tbody>
       <tfoot>
         <tr>
@@ -144,7 +162,6 @@
   </div>
 
   <script>
-    // Simple login (username/password stored in code)
     const correctUser = "jaspreet";
     const correctPass = "1234";
 
@@ -161,22 +178,27 @@
       }
     }
 
-    // Monthly Data Storage
     function updateTotal() {
-      const inputs = document.querySelectorAll("#expenseTable tbody input");
+      const tbody = document.querySelectorAll("#expenseTable tbody tr");
       let total = 0;
-      inputs.forEach(input => {
-        total += parseFloat(input.value) || 0;
+      tbody.forEach(row => {
+        const amount = parseFloat(row.cells[1].children[0].value) || 0;
+        total += amount;
       });
       document.getElementById("totalAmount").innerText = total.toFixed(2);
     }
 
     function saveMonth() {
       const month = document.getElementById("monthSelect").value;
-      const inputs = document.querySelectorAll("#expenseTable tbody input");
-      let values = [];
-      inputs.forEach(input => values.push(input.value));
-      localStorage.setItem("expenses_" + month, JSON.stringify(values));
+      const tbody = document.querySelectorAll("#expenseTable tbody tr");
+      let expenses = [];
+      tbody.forEach(row => {
+        expenses.push({
+          name: row.cells[0].children[0].value,
+          amount: row.cells[1].children[0].value
+        });
+      });
+      localStorage.setItem("expenses_" + month, JSON.stringify(expenses));
       alert("Expenses saved for " + document.getElementById("monthTitle").innerText);
     }
 
@@ -188,21 +210,24 @@
       ];
       document.getElementById("monthTitle").innerText = monthNames[month] + " Expenses";
 
-      // Load saved values
       const saved = localStorage.getItem("expenses_" + month);
-      const inputs = document.querySelectorAll("#expenseTable tbody input");
+      const tbody = document.querySelectorAll("#expenseTable tbody tr");
       if (saved) {
-        const values = JSON.parse(saved);
-        inputs.forEach((input, i) => {
-          input.value = values[i] || 0;
+        const expenses = JSON.parse(saved);
+        tbody.forEach((row, i) => {
+          row.cells[0].children[0].value = expenses[i].name || "";
+          row.cells[1].children[0].value = expenses[i].amount || 0;
         });
       } else {
-        inputs.forEach(input => input.value = 0);
+        tbody.forEach(row => {
+          row.cells[0].children[0].value = "";
+          row.cells[1].children[0].value = 0;
+        });
       }
       updateTotal();
     }
 
-    // Load current month by default
+    // Load current month
     const today = new Date();
     document.getElementById("monthSelect").value = today.getMonth();
   </script>
