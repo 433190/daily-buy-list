@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jaspreet Expenses</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0b0f14;
+      --surface: #111620;
+      --surface2: #161d2a;
+      --border: #1e2840;
+      --border2: #253050;
+      --accent: #4f9cf9;
+      --accent2: #7ee8a2;
+      --accent3: #f97b4f;
+      --text: #e8edf5;
+      --muted: #5a6a85;
+      --muted2: #8899b5;
+      --danger: #f97b4f;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Ambient background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -200px; left: -200px;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(79,156,249,0.06) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -200px; right: -200px;
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(126,232,162,0.05) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── LOGIN ── */
+    #loginScreen {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+      background: var(--bg);
+    }
+
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 3rem 2.5rem;
+      width: 100%; max-width: 380px;
+      position: relative;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .login-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%; transform: translateX(-50%);
+      width: 60%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+
+    .login-icon {
+      width: 56px; height: 56px;
+      background: rgba(79,156,249,0.1);
+      border: 1px solid rgba(79,156,249,0.2);
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      margin: 0 auto 1.5rem;
+    }
+
+    .login-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px;
+      font-weight: 300;
+      text-align: center;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .login-sub {
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .field-group {
+      margin-bottom: 1rem;
+    }
+
+    .field-label {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .field-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field-input:focus { border-color: var(--accent); }
+    .field-input::placeholder { color: var(--muted); }
+
+    .login-btn {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 13px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .login-btn:hover { opacity: 0.9; }
+    .login-btn:active { transform: scale(0.98); }
+
+    .login-error {
+      font-size: 13px;
+      color: var(--danger);
+      text-align: center;
+      margin-top: 12px;
+      min-height: 20px;
+    }
+
+    /* ── TRACKER ── */
+    #trackerScreen {
+      display: none;
+      min-height: 100vh;
+      padding: 0 1rem 4rem;
+      position: relative;
+      z-index: 1;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    /* Top nav */
+    .topnav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.5rem 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
+      max-width: 860px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .nav-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px;
+      font-weight: 300;
+      color: var(--text);
+      letter-spacing: 0.02em;
+    }
+    .nav-logo span { color: var(--accent); }
+
+    .nav-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted2);
+    }
+
+    .nav-avatar {
+      width: 32px; height: 32px;
+      background: rgba(79,156,249,0.15);
+      border: 1px solid rgba(79,156,249,0.25);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* Main container */
+    .main { max-width: 860px; margin: 0 auto; }
+
+    /* Month selector */
+    .month-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .month-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 36px;
+      font-weight: 300;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .month-select-wrap {
+      position: relative;
+    }
+
+    .month-select {
+      appearance: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 40px 10px 16px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text);
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .month-select:focus { border-color: var(--accent); }
+
+    .month-select-wrap::after {
+      content: '▾';
+      position: absolute;
+      right: 14px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+      font-size: 12px;
+    }
+
+    /* Stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+    .stat-card.blue::before { background: linear-gradient(90deg, var(--accent), transparent); }
+    .stat-card.green::before { background: linear-gradient(90deg, var(--accent2), transparent); }
+    .stat-card.orange::before { background: linear-gradient(90deg, var(--accent3), transparent); }
+
+    .stat-label {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 32px;
+      font-weight: 300;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .stat-value.blue { color: var(--accent); }
+    .stat-value.green { color: var(--accent2); }
+    .stat-value.orange { color: var(--accent3); }
+
+    /* Table */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+
+    .table-header {
+      display: grid;
+      grid-template-columns: 1fr 160px 80px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .expense-row {
+      display: grid;
+      grid-template-columns: 1fr 160px 80px;
+      align-items: center;
+      padding: 4px 12px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+      animation: rowIn 0.2s ease both;
+    }
+
+    @keyframes rowIn {
+      from { opacity: 0; transform: translateX(-8px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .expense-row:last-child { border-bottom: none; }
+    .expense-row:hover { background: rgba(255,255,255,0.02); }
+
+    .row-input {
+      background: transparent;
+      border: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      color: var(--text);
+      padding: 12px 8px;
+      outline: none;
+      width: 100%;
+      transition: color 0.15s;
+    }
+    .row-input::placeholder { color: var(--muted); }
+    .row-input:focus { color: var(--accent); }
+
+    .row-input.amount {
+      font-size: 15px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .delete-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 6px 10px;
+      font-size: 14px;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      justify-self: center;
+    }
+    .delete-btn:hover { color: var(--danger); border-color: rgba(249,123,79,0.3); background: rgba(249,123,79,0.08); }
+
+    .table-footer {
+      display: grid;
+      grid-template-columns: 1fr 160px 80px;
+      padding: 16px 20px;
+      border-top: 1px solid var(--border2);
+      background: var(--surface2);
+    }
+
+    .footer-label {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      align-self: center;
+    }
+
+    .footer-total {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px;
+      font-weight: 400;
+      color: var(--accent2);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Action buttons */
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .action-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 22px;
+      border-radius: 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      border: 1px solid transparent;
+    }
+    .action-btn:active { transform: scale(0.97); }
+
+    .action-btn.add {
+      background: rgba(79,156,249,0.1);
+      border-color: rgba(79,156,249,0.25);
+      color: var(--accent);
+    }
+    .action-btn.add:hover { background: rgba(79,156,249,0.18); }
+
+    .action-btn.save {
+      background: var(--accent2);
+      color: #0b1a10;
+      font-weight: 600;
+    }
+    .action-btn.save:hover { opacity: 0.9; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 2rem; right: 2rem;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 14px;
+      padding: 14px 20px;
+      font-size: 14px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 999;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent2); flex-shrink: 0; }
+    .toast-dot.err { background: var(--danger); }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 500px) {
+      .month-title { font-size: 28px; }
+      .table-header, .expense-row, .table-footer {
+        grid-template-columns: 1fr 120px 60px;
+      }
+    }
+  </style>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyB8vIjhz_BHKvMEr9kwaEy1ARw3ZY4pHQk",
+      authDomain: "jaspreetexpenses.firebaseapp.com",
+      projectId: "jaspreetexpenses",
+      storageBucket: "jaspreetexpenses.appspot.com",
+      messagingSenderId: "1082853248589",
+      appId: "1:1082853248589:web:55d128a2a88bc9a7a2d604"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+  </script>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="loginScreen">
+    <div class="login-card">
+      <div class="login-icon">💰</div>
+      <h1 class="login-title">Jaspreet Expenses</h1>
+      <p class="login-sub">Sign in to manage your finances</p>
+
+      <div class="field-group">
+        <label class="field-label">Username</label>
+        <input class="field-input" type="text" id="username" placeholder="Enter username" />
+      </div>
+      <div class="field-group">
+        <label class="field-label">Password</label>
+        <input class="field-input" type="password" id="password" placeholder="Enter password"
+          onkeydown="if(event.key==='Enter') login()" />
+      </div>
+      <button class="login-btn" onclick="login()">Sign In</button>
+      <p class="login-error" id="loginError"></p>
+    </div>
+  </div>
+
+  <!-- TRACKER -->
+  <div id="trackerScreen">
+    <nav class="topnav">
+      <div class="nav-logo">Expenses<span>.</span></div>
+      <div class="nav-user">
+        <div class="nav-avatar">J</div>
+        Jaspreet
+      </div>
+    </nav>
+
+    <div class="main">
+      <!-- Month bar -->
+      <div class="month-bar">
+        <h2 class="month-title" id="monthTitle">January</h2>
+        <div class="month-select-wrap">
+          <select class="month-select" id="monthSelect" onchange="changeMonth()">
+            <option value="0">January</option>
+            <option value="1">February</option>
+            <option value="2">March</option>
+            <option value="3">April</option>
+            <option value="4">May</option>
+            <option value="5">June</option>
+            <option value="6">July</option>
+            <option value="7">August</option>
+            <option value="8">September</option>
+            <option value="9">October</option>
+            <option value="10">November</option>
+            <option value="11">December</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card blue">
+          <div class="stat-label">Total Spent</div>
+          <div class="stat-value blue" id="statTotal">$0.00</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">No. of Expenses</div>
+          <div class="stat-value green" id="statCount">0</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-label">Average</div>
+          <div class="stat-value orange" id="statAvg">$0.00</div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <div class="table-header">
+          <span>Expense</span>
+          <span style="text-align:right">Amount ($)</span>
+          <span></span>
+        </div>
+        <div id="expenseRows"></div>
+        <div class="table-footer">
+          <span class="footer-label">Total</span>
+          <span class="footer-total" id="totalAmount">$0.00</span>
+          <span></span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button class="action-btn add" onclick="addRow()">
+          <span style="font-size:18px">+</span> Add Expense
+        </button>
+        <button class="action-btn save" onclick="saveMonth()">
+          ✦ Save Month
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">
+    <div class="toast-dot" id="toastDot"></div>
+    <span id="toastMsg">Saved successfully</span>
+  </div>
+
+<script>
+  const correctUser = "jaspreet";
+  const correctPass = "1234";
+  const monthNames = ["January","February","March","April","May","June",
+                      "July","August","September","October","November","December"];
+
+  function login() {
+    const u = document.getElementById("username").value;
+    const p = document.getElementById("password").value;
+    if (u === correctUser && p === correctPass) {
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("trackerScreen").style.display = "block";
+      document.getElementById("monthSelect").value = new Date().getMonth();
+      changeMonth();
+    } else {
+      document.getElementById("loginError").innerText = "Invalid username or password.";
+    }
+  }
+
+  function updateStats() {
+    const inputs = document.querySelectorAll(".row-amount");
+    let total = 0, count = 0;
+    inputs.forEach(inp => {
+      const v = parseFloat(inp.value) || 0;
+      if (v > 0) { total += v; count++; }
+    });
+    const allRows = document.querySelectorAll(".expense-row").length;
+    document.getElementById("totalAmount").textContent = "$" + total.toFixed(2);
+    document.getElementById("statTotal").textContent = "$" + total.toFixed(2);
+    document.getElementById("statCount").textContent = allRows;
+    document.getElementById("statAvg").textContent = allRows ? "$" + (total / allRows).toFixed(2) : "$0.00";
+  }
+
+  function addRow(name = "", amount = "") {
+    const container = document.getElementById("expenseRows");
+    const empty = document.getElementById("emptyState");
+    if (empty) empty.remove();
+
+    const row = document.createElement("div");
+    row.className = "expense-row";
+    row.innerHTML = `
+      <input class="row-input row-name" type="text" placeholder="Expense name..." value="${name}" oninput="updateStats()" />
+      <input class="row-input row-amount amount" type="number" placeholder="0.00" value="${amount}" oninput="updateStats()" />
+      <button class="delete-btn" onclick="deleteRow(this)" title="Remove">✕</button>
+    `;
+    container.appendChild(row);
+    updateStats();
+    row.querySelector('.row-name').focus();
+  }
+
+  function deleteRow(btn) {
+    btn.closest(".expense-row").remove();
+    updateStats();
+    if (!document.querySelector(".expense-row")) showEmpty();
+  }
+
+  function showEmpty() {
+    const container = document.getElementById("expenseRows");
+    const div = document.createElement("div");
+    div.className = "empty-state"; div.id = "emptyState";
+    div.textContent = "No expenses yet — click Add Expense to begin";
+    container.appendChild(div);
+  }
+
+  async function saveMonth() {
+    const month = document.getElementById("monthSelect").value;
+    const rows = document.querySelectorAll(".expense-row");
+    const expenses = [];
+    rows.forEach(row => expenses.push({
+      name: row.querySelector(".row-name").value,
+      amount: parseFloat(row.querySelector(".row-amount").value) || 0
+    }));
+    try {
+      await db.collection("expenses").doc(correctUser)
+        .collection("months").doc(month).set({ expenses });
+      showToast("Saved — " + monthNames[month], false);
+    } catch(err) {
+      showToast("Error: " + err.message, true);
+    }
+  }
+
+  async function changeMonth() {
+    const month = document.getElementById("monthSelect").value;
+    document.getElementById("monthTitle").textContent = monthNames[month];
+    const container = document.getElementById("expenseRows");
+    container.innerHTML = "";
+    try {
+      const snap = await db.collection("expenses").doc(correctUser)
+        .collection("months").doc(month).get();
+      if (snap.exists && snap.data().expenses.length) {
+        snap.data().expenses.forEach(e => addRow(e.name, e.amount));
+      } else {
+        addRow(); 
+      }
+    } catch(err) {
+      addRow();
+    }
+    updateStats();
+  }
+
+  function showToast(msg, isErr) {
+    const t = document.getElementById("toast");
+    const dot = document.getElementById("toastDot");
+    document.getElementById("toastMsg").textContent = msg;
+    dot.className = "toast-dot" + (isErr ? " err" : "");
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 3000);
+  }
+</script>
+</body>
+</html>
