@@ -20,10 +20,11 @@
   };
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
-  window.db = db;
-  window.firestoreSetDoc = setDoc;
-  window.firestoreDoc = doc;
-  window.firestoreGetDoc = getDoc;
+
+  // Pre-bound helpers accessible from non-module scripts
+  window._saveData = (month, data) =>
+    setDoc(doc(db, "users", "jaspreet"), { [month]: data }, { merge: true });
+  window._loadData = () => getDoc(doc(db, "users", "jaspreet"));
 </script>
 
 <style>
@@ -607,13 +608,10 @@
     });
 
     try {
-      await window.firestoreSetDoc(
-        window.firestoreDoc(window.db, "users", USER),
-        { [month]: data },
-        { merge: true }
-      );
+      await window._saveData(month, data);
       showToast("Saved to cloud ✓", "success");
     } catch (e) {
+      console.error("Save error:", e);
       showToast("Save failed — check connection", "error");
     }
   }
@@ -622,27 +620,27 @@
     const month = document.getElementById("month").value;
     const container = document.getElementById("rows");
     rowCount = 0;
-    container.innerHTML = `<div class="loading-rows"><span class="spinner"></span>Loading…</div>`;
 
+    // Show a blank row instantly — no waiting
+    container.innerHTML = "";
+    addRow();
+
+    // Then fetch from Firebase in the background
     try {
-      const snap = await window.firestoreGetDoc(window.firestoreDoc(window.db, "users", USER));
-      container.innerHTML = "";
+      const snap = await window._loadData();
       if (snap.exists()) {
         const monthData = snap.data()[month];
         if (monthData && monthData.length) {
+          container.innerHTML = "";
+          rowCount = 0;
           monthData.forEach(d => addRow(d.name, d.amount));
-        } else {
-          addRow();
+          updateTotal();
         }
-      } else {
-        addRow();
       }
     } catch (e) {
-      container.innerHTML = "";
-      addRow();
-      showToast("Could not load from cloud", "error");
+      console.error("Load error:", e);
+      showToast("Could not sync from cloud", "error");
     }
-    updateTotal();
   }
 
   // ── Toast ──
