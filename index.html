@@ -18,13 +18,51 @@
     messagingSenderId: "851054016055",
     appId: "1:851054016055:web:769f45050c7f159c9f71b2"
   };
+
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
+  const STORAGE_KEY = "expenses_jaspreet";
 
-  // Pre-bound helpers accessible from non-module scripts
-  window._saveData = (month, data) =>
-    setDoc(doc(db, "users", "jaspreet"), { [month]: data }, { merge: true });
-  window._loadData = () => getDoc(doc(db, "users", "jaspreet"));
+  function saveLocal(month, data) {
+    try {
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      stored[month] = data;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    } catch (err) {
+      console.warn("Local save failed", err);
+    }
+  }
+
+  function loadLocal() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    } catch (err) {
+      return {};
+    }
+  }
+
+  window._saveData = async (month, data) => {
+    try {
+      await setDoc(doc(db, "users", "jaspreet"), { [month]: data }, { merge: true });
+      saveLocal(month, data);
+      return { source: "cloud" };
+    } catch (err) {
+      saveLocal(month, data);
+      return { source: "local", error: err };
+    }
+  };
+
+  window._loadData = async () => {
+    try {
+      const snap = await getDoc(doc(db, "users", "jaspreet"));
+      return { source: "cloud", snap };
+    } catch (err) {
+      return { source: "local", data: loadLocal(), error: err };
+    }
+  };
+
+  window._firebaseReady = true;
+  document.dispatchEvent(new Event("firebase-ready"));
 </script>
 
 <style>
@@ -220,6 +258,17 @@
   .month-select option {
     background: var(--ink);
     color: var(--paper);
+  }
+
+  .sync-status {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--paper);
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 8px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
   }
 
   /* ── Card ── */
@@ -472,7 +521,7 @@
       <input id="password" type="password" placeholder="••••••••" autocomplete="current-password"
              onkeydown="if(event.key==='Enter') login()">
     </div>
-    <button class="btn-primary" onclick="login()">Sign In →</button>
+    <button id="login-btn" class="btn-primary" onclick="login()">Sign In →</button>
     <p class="login-error" id="login-error">Incorrect credentials. Try again.</p>
   </div>
 
@@ -497,6 +546,7 @@
         <option value="10">November</option>
         <option value="11">December</option>
       </select>
+      <div class="sync-status" id="sync-status">Connecting…</div>
     </div>
 
     <div class="card">
@@ -525,6 +575,51 @@
 <script>
   const USER = "jaspreet";
   const PASS = "1234";
+  const loginBtn = document.getElementById("login-btn");
+
+  if (loginBtn) {
+    loginBtn.disabled = true;
+    loginBtn.textContent = "Connecting…";
+  }
+
+  const syncStatusEl = document.getElementById("sync-status");
+
+  function setSyncStatus(text, type = "neutral") {
+    if (!syncStatusEl) return;
+    syncStatusEl.textContent = text;
+    if (type === "cloud") {
+      syncStatusEl.style.background = "rgba(76, 175, 80, 0.16)";
+      syncStatusEl.style.color = "#fff";
+      syncStatusEl.style.borderColor = "rgba(76, 175, 80, 0.4)";
+    } else if (type === "local") {
+      syncStatusEl.style.background = "rgba(255, 193, 7, 0.14)";
+      syncStatusEl.style.color = "#fff";
+      syncStatusEl.style.borderColor = "rgba(255, 193, 7, 0.4)";
+    } else if (type === "error") {
+      syncStatusEl.style.background = "rgba(216, 67, 21, 0.16)";
+      syncStatusEl.style.color = "#fff";
+      syncStatusEl.style.borderColor = "rgba(216, 67, 21, 0.4)";
+    } else {
+      syncStatusEl.style.background = "rgba(255,255,255,0.08)";
+      syncStatusEl.style.color = "var(--paper)";
+      syncStatusEl.style.borderColor = "rgba(255,255,255,0.2)";
+    }
+  }
+
+  function onFirebaseReady() {
+    if (loginBtn) {
+      loginBtn.disabled = false;
+      loginBtn.textContent = "Sign In →";
+    }
+    setSyncStatus("Firebase ready", "cloud");
+  }
+
+  if (window._firebaseReady) {
+    onFirebaseReady();
+  } else {
+    document.addEventListener("firebase-ready", onFirebaseReady, { once: true });
+    setTimeout(() => setSyncStatus("Offline / local only", "local"), 6000);
+  }
 
   // ── Auth ──
   function login() {
@@ -533,7 +628,6 @@
     if (u === USER && p === PASS) {
       document.getElementById("login").style.display = "none";
       document.getElementById("app").style.display = "block";
-      // Default to current month
       const now = new Date();
       document.getElementById("month").value = now.getMonth();
       loadData();
@@ -608,8 +702,14 @@
     });
 
     try {
-      await window._saveData(month, data);
-      showToast("Saved to cloud ✓", "success");
+      const result = await window._saveData(month, data);
+      if (result.source === "cloud") {
+        showToast("Saved to cloud ✓", "success");
+        setSyncStatus("Cloud saved", "cloud");
+      } else {
+        showToast("Saved locally (cloud unavailable)", "error");
+        setSyncStatus("Saved locally", "local");
+      }
     } catch (e) {
       console.error("Save error:", e);
       showToast("Save failed — check connection", "error");
@@ -621,21 +721,36 @@
     const container = document.getElementById("rows");
     rowCount = 0;
 
-    // Show a blank row instantly — no waiting
     container.innerHTML = "";
     addRow();
 
-    // Then fetch from Firebase in the background
     try {
-      const snap = await window._loadData();
-      if (snap.exists()) {
-        const monthData = snap.data()[month];
+      const result = await window._loadData();
+      if (result.source === "cloud") {
+        setSyncStatus("Loaded from cloud", "cloud");
+        if (result.snap.exists()) {
+          const monthData = result.snap.data()[month];
+          if (monthData && monthData.length) {
+            container.innerHTML = "";
+            rowCount = 0;
+            monthData.forEach(d => addRow(d.name, d.amount));
+            updateTotal();
+          }
+        }
+      } else {
+        const localData = result.data || {};
+        const monthData = localData[month];
         if (monthData && monthData.length) {
           container.innerHTML = "";
           rowCount = 0;
           monthData.forEach(d => addRow(d.name, d.amount));
           updateTotal();
+          showToast("Loaded from local cache", "error");
+          setSyncStatus("Offline — local cache", "local");
+          return;
         }
+        showToast("Could not sync from cloud", "error");
+        setSyncStatus("Cloud unavailable", "error");
       }
     } catch (e) {
       console.error("Load error:", e);
