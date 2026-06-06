@@ -9,6 +9,7 @@
 <!-- Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCYtszBHTirQzuAmJhmh2SkqisYnL-0JKw",
@@ -20,6 +21,7 @@
   };
 
   const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
   const db = getFirestore(app);
   const STORAGE_KEY = "expenses_jaspreet";
 
@@ -41,12 +43,15 @@
     }
   }
 
+  const docRef = doc(db, "users", "jaspreet");
+
   window._saveData = async (month, data) => {
     try {
-      await setDoc(doc(db, "users", "jaspreet"), { [month]: data }, { merge: true });
+      await setDoc(docRef, { [month]: data }, { merge: true });
       saveLocal(month, data);
       return { source: "cloud" };
     } catch (err) {
+      console.error("Cloud save failed", err);
       saveLocal(month, data);
       return { source: "local", error: err };
     }
@@ -54,15 +59,28 @@
 
   window._loadData = async () => {
     try {
-      const snap = await getDoc(doc(db, "users", "jaspreet"));
-      return { source: "cloud", snap };
+      const snap = await getDoc(docRef);
+      return { source: "cloud", snap, data: loadLocal() };
     } catch (err) {
+      console.error("Cloud load failed", err);
       return { source: "local", data: loadLocal(), error: err };
     }
   };
 
-  window._firebaseReady = true;
-  document.dispatchEvent(new Event("firebase-ready"));
+  function firebaseReady() {
+    window._firebaseReady = true;
+    document.dispatchEvent(new Event("firebase-ready"));
+  }
+
+  signInAnonymously(auth)
+    .then(() => {
+      console.log("Firebase anonymous auth OK");
+      firebaseReady();
+    })
+    .catch(err => {
+      console.warn("Firebase anonymous auth failed", err);
+      firebaseReady();
+    });
 </script>
 
 <style>
@@ -707,12 +725,14 @@
         showToast("Saved to cloud ✓", "success");
         setSyncStatus("Cloud saved", "cloud");
       } else {
-        showToast("Saved locally (cloud unavailable)", "error");
+        const message = result.error?.message || "cloud unavailable";
+        showToast(`Saved locally — ${message}`, "error");
         setSyncStatus("Saved locally", "local");
       }
     } catch (e) {
       console.error("Save error:", e);
-      showToast("Save failed — check connection", "error");
+      showToast(`Save failed — ${e.message || "check connection"}`, "error");
+      setSyncStatus("Save failed", "error");
     }
   }
 
@@ -727,16 +747,32 @@
     try {
       const result = await window._loadData();
       if (result.source === "cloud") {
-        setSyncStatus("Loaded from cloud", "cloud");
         if (result.snap.exists()) {
           const monthData = result.snap.data()[month];
           if (monthData && monthData.length) {
+            setSyncStatus("Loaded from cloud", "cloud");
             container.innerHTML = "";
             rowCount = 0;
             monthData.forEach(d => addRow(d.name, d.amount));
             updateTotal();
+            return;
           }
         }
+
+        const localData = result.data || {};
+        const localMonthData = localData[month];
+        if (localMonthData && localMonthData.length) {
+          setSyncStatus("Loaded from local cache", "local");
+          showToast("Loaded local cache because cloud month data was missing", "error");
+          container.innerHTML = "";
+          rowCount = 0;
+          localMonthData.forEach(d => addRow(d.name, d.amount));
+          updateTotal();
+          return;
+        }
+
+        showToast("No cloud data for this month", "error");
+        setSyncStatus("Cloud ready — no month data", "cloud");
       } else {
         const localData = result.data || {};
         const monthData = localData[month];
@@ -749,12 +785,14 @@
           setSyncStatus("Offline — local cache", "local");
           return;
         }
-        showToast("Could not sync from cloud", "error");
+        const message = result.error?.message || "cloud unavailable";
+        showToast(`Could not sync from cloud — ${message}`, "error");
         setSyncStatus("Cloud unavailable", "error");
       }
     } catch (e) {
       console.error("Load error:", e);
-      showToast("Could not sync from cloud", "error");
+      showToast(`Could not sync from cloud — ${e.message || "unknown error"}`, "error");
+      setSyncStatus("Load failed", "error");
     }
   }
 
