@@ -9,7 +9,7 @@
 <!-- Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getAuth, signInAnonymously, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCYtszBHTirQzuAmJhmh2SkqisYnL-0JKw",
@@ -43,15 +43,20 @@
     }
   }
 
-  const docRef = doc(db, "users", "jaspreet");
+  function getDocRefForUid(uid) { return doc(db, "users", uid); }
+  // Last cloud error (populated on failed cloud calls)
+  window._lastCloudError = null;
 
   window._saveData = async (month, data) => {
     try {
-      await setDoc(docRef, { [month]: data }, { merge: true });
+      const uid = auth.currentUser?.uid || 'guest';
+      await setDoc(getDocRefForUid(uid), { [month]: data }, { merge: true });
       saveLocal(month, data);
+      window._lastCloudError = null;
       return { source: "cloud" };
     } catch (err) {
       console.error("Cloud save failed", err);
+      window._lastCloudError = err;
       saveLocal(month, data);
       return { source: "local", error: err };
     }
@@ -59,13 +64,73 @@
 
   window._loadData = async () => {
     try {
-      const snap = await getDoc(docRef);
+      const uid = auth.currentUser?.uid || 'guest';
+      const snap = await getDoc(getDocRefForUid(uid));
+      window._lastCloudError = null;
       return { source: "cloud", snap, data: loadLocal() };
     } catch (err) {
       console.error("Cloud load failed", err);
+      window._lastCloudError = err;
       return { source: "local", data: loadLocal(), error: err };
     }
   };
+
+  // Convenience helper to test cloud writes without touching user months
+  window._cloudTest = async () => {
+    try {
+      const res = await window._saveData('__cloud_test__', [{ name: '_ping', amount: 0 }]);
+      return res;
+    } catch (err) {
+      return { source: 'local', error: err };
+    }
+  };
+
+  // OAuth helpers
+  async function oauthSignIn() {
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      console.log('Signed in with Google:', user.email, user.uid);
+      firebaseReady();
+      return user;
+    } catch (err) {
+      console.error('Google sign-in failed', err);
+      window._lastCloudError = err;
+      throw err;
+    }
+  }
+
+  async function signOutUser() {
+    try {
+      await signOut(auth);
+      console.log('Signed out');
+      setSyncStatus('Signed out', 'local');
+    } catch (err) {
+      console.error('Sign-out failed', err);
+    }
+  }
+
+  // Listen for auth state changes to update UI
+  onAuthStateChanged(auth, user => {
+    const userInfo = document.getElementById('user-info');
+    const loginEl = document.getElementById('login');
+    const appEl = document.getElementById('app');
+    if (user) {
+      if (userInfo) userInfo.innerHTML = `${user.email || 'Anonymous'} <button onclick="signOutUser()" style="margin-left:12px;">Sign out</button>`;
+      if (loginEl) loginEl.style.display = 'none';
+      if (appEl) appEl.style.display = 'block';
+      setSyncStatus('Signed in', 'cloud');
+    } else {
+      if (userInfo) userInfo.innerHTML = '';
+      if (loginEl) loginEl.style.display = 'block';
+      if (appEl) appEl.style.display = 'none';
+      setSyncStatus('Offline / local only', 'local');
+    }
+  });
+  // Expose helpers to global scope for inline handlers
+  window.oauthSignIn = oauthSignIn;
+  window.signOutUser = signOutUser;
 
   function firebaseReady() {
     window._firebaseReady = true;
@@ -79,6 +144,7 @@
     })
     .catch(err => {
       console.warn("Firebase anonymous auth failed", err);
+      window._lastCloudError = err;
       firebaseReady();
     });
 </script>
@@ -540,6 +606,7 @@
              onkeydown="if(event.key==='Enter') login()">
     </div>
     <button id="login-btn" class="btn-primary" onclick="login()">Sign In →</button>
+    <button class="btn-primary" style="margin-top:8px;background:#2b6cb0;" onclick="oauthSignIn()">Sign in with Google</button>
     <p class="login-error" id="login-error">Incorrect credentials. Try again.</p>
   </div>
 
@@ -565,6 +632,7 @@
         <option value="11">December</option>
       </select>
       <div class="sync-status" id="sync-status">Connecting…</div>
+      <div id="user-info" style="margin-left:12px;color:var(--paper);font-family:'DM Mono',monospace;font-size:12px"></div>
     </div>
 
     <div class="card">
@@ -637,6 +705,33 @@
   } else {
     document.addEventListener("firebase-ready", onFirebaseReady, { once: true });
     setTimeout(() => setSyncStatus("Offline / local only", "local"), 6000);
+  }
+
+  // Make the sync badge clickable to run a quick cloud test and show last error
+  if (syncStatusEl) {
+    syncStatusEl.style.cursor = 'pointer';
+    syncStatusEl.title = 'Click to test cloud connectivity / view last error';
+    syncStatusEl.addEventListener('click', async () => {
+      setSyncStatus('Testing…', 'neutral');
+      try {
+        if (window._cloudTest) {
+          const res = await window._cloudTest();
+          if (res.source === 'cloud') {
+            alert('Cloud write OK — test document written.');
+            setSyncStatus('Cloud OK', 'cloud');
+          } else {
+            const msg = res.error?.message || (window._lastCloudError && window._lastCloudError.message) || 'unknown';
+            alert('Cloud write failed: ' + msg);
+            setSyncStatus('Cloud unavailable', 'error');
+          }
+        } else {
+          alert('Cloud test not available');
+        }
+      } catch (err) {
+        alert('Cloud test error: ' + (err.message || err));
+        setSyncStatus('Cloud unavailable', 'error');
+      }
+    });
   }
 
   // ── Auth ──
